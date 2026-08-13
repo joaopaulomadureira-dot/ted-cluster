@@ -2,9 +2,6 @@
 
 ## Status: EM PROGRESSO ✓
 
-<!-- teste do hook de commit/push automático, 13/08/2026 -->
-
-
 ### ✅ Completado
 - [x] Claude Code regularizado no GERENTE (M4 MacBook)
 - [x] Estrutura de diretórios criada: `~/Ted/hardware/`

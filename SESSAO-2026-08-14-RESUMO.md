@@ -62,8 +62,8 @@ As duas causas descritas abaixo foram corrigidas na mesma sessão: o Colima foi 
 Instalado Bitwarden CLI (`bw`) no GERENTE, logado na conta pessoal do JPM (`https://100.122.103.89/`, self-signed — precisa `NODE_TLS_REJECT_UNAUTHORIZED=0` pro `bw` aceitar o certificado). Criado o item **"TED MCP - GitHub"** com o PAT usado pelo GitHub MCP. Primeira chave real migrada pro Vaultwarden desde que ele subiu (13/08) — o resto ainda está só no `TED_INFRA_CHAVES.md`.
 
 ### Pendências reais desta frente
-1. Corrigir o Colima do OP1 (`colima delete` + rebuild) pra desbloquear os 6 MCPs lá
-2. Investigar o wrapper OpenCode-Docker do OP2 (entrypoint da imagem) se fizer sentido registrar os MCPs lá também
+1. ~~Corrigir o Colima do OP1~~ — **resolvido**, ver seção completa mais abaixo
+2. Investigar o wrapper OpenCode-Docker do OP2 (entrypoint da imagem) se fizer sentido registrar os MCPs lá também — e revisar se OP2 também tem AVX2 (mesmo modelo do OP1) e pode simplificar pra nativo igual foi feito no OP1
 3. Migrar o resto das chaves do `TED_INFRA_CHAVES.md` pro Vaultwarden (só o GitHub MCP foi migrado agora)
 4. Próxima leva do catálogo (Skills oficiais docx/pdf/pptx/xlsx, subagentes) — aguardando decisão do JPM sobre o que instalar em seguida
 

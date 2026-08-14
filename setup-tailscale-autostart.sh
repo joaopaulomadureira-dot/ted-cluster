@@ -61,14 +61,15 @@ done
 </plist>
 PLIST_EOF
 
-echo "✅ LaunchAgent criado: ~/.launchagents/io.tailscale.ted.plist"
+echo "✅ LaunchAgent criado: ~/Library/LaunchAgents/io.tailscale.ted.plist"
 
 # 3. Descarregar versão antiga se existir
-launchctl unload ~/.launchagents/io.tailscale.ted.plist 2>/dev/null || true
+launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/io.tailscale.ted.plist 2>/dev/null || true
 sleep 1
 
 # 4. Carregar novo
-launchctl load ~/.launchagents/io.tailscale.ted.plist
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/io.tailscale.ted.plist
+launchctl enable gui/$(id -u)/io.tailscale.ted
 
 echo "✅ LaunchAgent carregado"
 

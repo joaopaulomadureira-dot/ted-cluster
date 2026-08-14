@@ -1,8 +1,47 @@
 # Sessão 14/08/2026 — Resumo (Bug crítico Tailscale autostart corrigido)
 
-**Status geral**: Bug encontrado e corrigido nos 4 nós, validado com reboot real em todos. Cluster confirmado 4/4 online na tailnet ao final da sessão.
+**Status geral**: Bug encontrado e corrigido nos 4 nós, validado com reboot real em todos. Cluster confirmado 4/4 online na tailnet ao final da sessão. Depois, primeira leva de 6 MCP servers instalada e testada de ponta a ponta em GERENTE e COORD.
 
 ---
+
+## 🔧 Municiamento — 6 MCP servers instalados (GERENTE + COORD)
+
+Primeira leva do catálogo levantado nesta sessão (research completa em conversa, não documentada em arquivo separado). Instalados e testados de ponta a ponta em **GERENTE e COORD** — Claude Code (`claude mcp add`, escopo `user`) e OpenCode (`~/.config/opencode/opencode.jsonc`):
+
+| MCP | Onde aponta | Teste real feito |
+|---|---|---|
+| Filesystem | `~/Ted` (GERENTE) / home do usuário (COORD) | Conectado via handshake MCP |
+| Sequential Thinking | local, sem estado | Conectado |
+| Fetch | local (Python/uvx) | Conectado após fix de versão (ver abaixo) |
+| Postgres | `ted_core` no OP2 (100.122.103.89:5432) | Conectado via handshake MCP |
+| Docker | Docker/Colima do OP2, via túnel SSH | **Teste funcional real**: `list-containers` retornou os 12 containers reais (`ted-infra-*`) |
+| GitHub | Endpoint oficial hospedado `api.githubcopilot.com/mcp/` | **Teste funcional real**: handshake + capabilities reais confirmados via curl |
+
+### Bugs reais encontrados e corrigidos durante a instalação
+- **`mcp-server-fetch`** (pip/uvx) quebra com a versão mais recente do SDK `mcp` (`ImportError: McpError` — renomeado pra `MCPError` upstream). Fix: pin `mcp==1.14.0` via `uvx --with "mcp==1.14.0" mcp-server-fetch`.
+- **`docker-mcp`** (pip/uvx) quebra pelo mesmo motivo (`AttributeError: 'Server' object has no attribute 'list_prompts'`) e também exige Python ≥3.12 explícito. Fix: `uvx --python 3.12 --with "mcp==1.9.4" docker-mcp`.
+- **GitHub MCP** não precisou de binário/Docker — existe um endpoint remoto oficial hospedado (`https://api.githubcopilot.com/mcp/`, auth via `Authorization: Bearer <PAT>`), muito mais simples que rodar `github-mcp-server` localmente.
+
+### Decisão técnica — Docker MCP e o acesso remoto ao OP2
+O Docker MCP precisa falar com o socket do Colima, que só existe localmente no OP2 (`unix:///Users/tedop2/.colima/default/docker.sock`, sem TCP exposto). Em vez de expor esse socket na rede (mais arriscado numa máquina já frágil), o comando registrado usa `ssh -i <chave> tedop2@100.122.103.89 'uvx ... docker-mcp'` — o processo roda no OP2, mas o stdio é tunelado pra quem chamou (GERENTE/COORD), sem precisar expor nada novo na rede. `uv`/`uvx` instalado no OP2 via Homebrew pra isso (rodou sem problema no hardware 2011, sem SIGILL).
+
+### Bloqueio real — OP1 não consegue rodar nenhum destes agora
+Duas causas independentes, nenhuma criada por esta sessão:
+1. **Sem Node/npx/uvx nativo** — CPU 2011 sem AVX2 (mesma causa raiz documentada pro Tailscale CLI e OpenCode nativo).
+2. **O Colima do OP1** (usado só pro wrapper Docker do OpenCode) está **quebrado**: `vz driver is running but host agent is not`. Precisa de `colima delete` + rebuild ou reinstalação — não tentei corrigir agora porque é destrutivo e fora do escopo desta tarefa.
+
+Config das 6 entradas já está escrita em `~/.opencode-docker-state/.config/opencode/opencode.jsonc` do OP1 (com nota explicando o bloqueio), pronta pra funcionar assim que o Colima for corrigido. OP1 também não tem `~/.ssh/id_ed25519` (só existe no COORD) — a entrada Docker do OP1 vai precisar de uma chave própria quando for reativada.
+
+**OP2**: tem seu próprio Colima funcionando normalmente (é o que hospeda o `ted-infra` e agora também o Docker MCP via túnel). Não configurei o OpenCode dele com as 6 entradas — o wrapper Docker do OpenCode lá usa uma imagem cujo entrypoint não é um shell simples, não investiguei mais fundo (fora do escopo principal desta tarefa, fica como pendência se fizer sentido no futuro).
+
+### Vaultwarden
+Instalado Bitwarden CLI (`bw`) no GERENTE, logado na conta pessoal do JPM (`https://100.122.103.89/`, self-signed — precisa `NODE_TLS_REJECT_UNAUTHORIZED=0` pro `bw` aceitar o certificado). Criado o item **"TED MCP - GitHub"** com o PAT usado pelo GitHub MCP. Primeira chave real migrada pro Vaultwarden desde que ele subiu (13/08) — o resto ainda está só no `TED_INFRA_CHAVES.md`.
+
+### Pendências reais desta frente
+1. Corrigir o Colima do OP1 (`colima delete` + rebuild) pra desbloquear os 6 MCPs lá
+2. Investigar o wrapper OpenCode-Docker do OP2 (entrypoint da imagem) se fizer sentido registrar os MCPs lá também
+3. Migrar o resto das chaves do `TED_INFRA_CHAVES.md` pro Vaultwarden (só o GitHub MCP foi migrado agora)
+4. Próxima leva do catálogo (Skills oficiais docx/pdf/pptx/xlsx, subagentes) — aguardando decisão do JPM sobre o que instalar em seguida
 
 ## 🐛 Problema reportado
 

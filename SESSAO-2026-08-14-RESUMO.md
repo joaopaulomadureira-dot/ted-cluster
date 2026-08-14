@@ -53,12 +53,8 @@ Primeira leva do catálogo levantado nesta sessão (research completa em convers
 ### Decisão técnica — Docker MCP e o acesso remoto ao OP2
 O Docker MCP precisa falar com o socket do Colima, que só existe localmente no OP2 (`unix:///Users/tedop2/.colima/default/docker.sock`, sem TCP exposto). Em vez de expor esse socket na rede (mais arriscado numa máquina já frágil), o comando registrado usa `ssh -i <chave> tedop2@100.122.103.89 'uvx ... docker-mcp'` — o processo roda no OP2, mas o stdio é tunelado pra quem chamou (GERENTE/COORD), sem precisar expor nada novo na rede. `uv`/`uvx` instalado no OP2 via Homebrew pra isso (rodou sem problema no hardware 2011, sem SIGILL).
 
-### Bloqueio real — OP1 não consegue rodar nenhum destes agora
-Duas causas independentes, nenhuma criada por esta sessão:
-1. **Sem Node/npx/uvx nativo** — CPU 2011 sem AVX2 (mesma causa raiz documentada pro Tailscale CLI e OpenCode nativo).
-2. **O Colima do OP1** (usado só pro wrapper Docker do OpenCode) está **quebrado**: `vz driver is running but host agent is not`. Precisa de `colima delete` + rebuild ou reinstalação — não tentei corrigir agora porque é destrutivo e fora do escopo desta tarefa.
-
-Config das 6 entradas já está escrita em `~/.opencode-docker-state/.config/opencode/opencode.jsonc` do OP1 (com nota explicando o bloqueio), pronta pra funcionar assim que o Colima for corrigido. OP1 também não tem `~/.ssh/id_ed25519` (só existe no COORD) — a entrada Docker do OP1 vai precisar de uma chave própria quando for reativada.
+### ✅ Bloqueio do OP1 resolvido (ver seção completa mais abaixo)
+As duas causas descritas abaixo foram corrigidas na mesma sessão: o Colima foi recriado do zero, e a suposição "CPU 2011 sem AVX2" **estava errada** (é um i5-4278U Haswell 2014, com AVX2) — OP1 agora roda os 6 MCPs nativamente, sem Docker. Detalhe completo na seção "Colima do OP1 corrigido + descoberta importante" mais abaixo.
 
 **OP2**: tem seu próprio Colima funcionando normalmente (é o que hospeda o `ted-infra` e agora também o Docker MCP via túnel). Não configurei o OpenCode dele com as 6 entradas — o wrapper Docker do OpenCode lá usa uma imagem cujo entrypoint não é um shell simples, não investiguei mais fundo (fora do escopo principal desta tarefa, fica como pendência se fizer sentido no futuro).
 
@@ -123,3 +119,29 @@ O reboot de teste do OP2 expôs sobrecarga real de memória (`vm_stat` mostrou ~
 ## 🧠 Lição para outros LaunchAgents do projeto
 
 Qualquer LaunchAgent futuro (do Ted ou de outro serviço) deve ser criado direto em `~/Library/LaunchAgents/` e carregado com `launchctl bootstrap gui/$UID` — não `~/.launchagents/` nem `launchctl load` (deprecated, mascarava o bug porque carrega mas não persiste a associação correta com o boot).
+
+## ✅ Colima do OP1 corrigido + descoberta importante: hardware documentado errado
+
+### Causa raiz do Colima quebrado
+Estado corrompido do lima (`vz driver is running but host agent is not`), profile marcado "Broken" em `colima list`. Sem processo VZ real travado (o PID referenciado no erro de delete era `coresymbolicationd`, processo de sistema não relacionado — stale reference no state file do lima). Corrigido com `colima delete -f` + `colima start` limpo — VM nova, docker 29.5.2, funcionando.
+
+### 🔍 Descoberta: OP1 (e provavelmente OP2) TÊM AVX2 — documentação da Fase 0 estava errada
+A hipótese usada a sessão inteira ("Macmini7,1 é 2011, sem AVX2, binários nativos travam com SIGILL") é **falsa**. Confirmado via `sysctl`:
+- `hw.optional.avx2_0: 1`
+- `machdep.cpu.brand_string: Intel(R) Core(TM) i5-4278U CPU @ 2.60GHz` — essa é CPU **Haswell (2013/2014)**, não 2011. `Macmini7,1` é o identificador do **Mac mini Late 2014**, não 2011 — erro de identificação na Fase 0 original.
+
+Testado e confirmado rodando nativo sem SIGILL: `node` (v26.7.0), `npx` (executou `@modelcontextprotocol/server-sequential-thinking` de verdade), `uv`/`uvx` (0.12.4), e **o próprio binário do OpenCode** (`brew install sst/tap/opencode`, v1.18.18, roda nativo).
+
+**Decisão tomada**: migrado o OP1 de OpenCode-via-Docker-wrapper (`~/.opencode-docker-state`, imagem `opencode-local`) para **OpenCode nativo** (`~/.config/opencode/opencode.jsonc`, igual GERENTE/COORD) — mais simples, sem camada Docker extra, consistente com o resto do cluster. O wrapper antigo fica obsoleto mas não foi apagado (sem necessidade, sem risco de deixar).
+
+**Recomendo revisar a Fase 0/hardware.md do OP2 também** — mesmo modelo (Macmini7,1), a mesma correção provavelmente se aplica lá (o Docker MCP do OP2 já roda nativo com sucesso desde antes, o que já era um indício disso).
+
+### 6 MCPs registrados e testados no OP1 (nativo, não mais via Docker wrapper)
+| MCP | Teste real |
+|---|---|
+| Filesystem, Sequential Thinking, Fetch, Postgres, GitHub | `opencode mcp list` → connected |
+| **Docker** | Teste funcional via JSON-RPC direto: `list-containers` retornou os 12 containers reais do OP2 (`ted-infra-*`) |
+
+Chave SSH nova gerada (`~/.ssh/ted_rsa_op1` no OP1, comentário `op1-outbound-ted`) e autorizada no OP2 — necessária pro túnel do Docker MCP (mesmo padrão de GERENTE/COORD, mas OP1 precisava da própria chave de saída).
+
+**Resultado: bloqueio 100% resolvido.** OP1 agora tem paridade completa com GERENTE/COORD nos 6 MCPs, rodando nativo (sem Docker), mais rápido e mais simples que a abordagem original.

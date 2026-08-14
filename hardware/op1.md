@@ -4,9 +4,9 @@
 
 - Modelo: Mac mini
 - Identificador: Macmini7,1
-- Ano/geração: 2011-2012 (Intel era antiga!)
-- CPU: Intel Core i5 dual-core (2 cores)
-- AVX2: ⚠️ VERIFICAR (CPU 2011, muito provável que NÃO tem AVX2)
+- Ano/geração: **Late 2014** (corrigido 14/08/2026 — doc original dizia "2011-2012" errado)
+- CPU: Intel Core i5-4278U (Haswell) dual-core @ 2.60GHz
+- AVX2: ✅ **SIM** (corrigido 14/08/2026 — confirmado via `sysctl hw.optional.avx2_0` = 1; a suposição original de "sem AVX2" estava errada e bloqueou desnecessariamente o OpenCode nativo por dias)
 - RAM: 8 GB
 - Disco interno: 234 GB total, 12 GB utilizado, 176 GB livre
 - Disco externo: Nenhum

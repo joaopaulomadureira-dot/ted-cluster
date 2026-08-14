@@ -18,9 +18,19 @@ n8n já tem MCP nativo desde a v2.34 (confirmado — instância roda 2.34.5). Ha
 ### Nota técnica — automação de browser sem ferramenta dedicada
 Não há Playwright/browser-MCP disponível nesta sessão. O caminho que funcionou: Safari via `osascript`, permissões **Accessibility** e **Screen Recording** liberadas pelo JPM (System Settings), e cliques via System Events **por referência de elemento AXButton encontrado por nome** (`entire contents of window`, filtra `role is "AXButton"` + `name is "X"`, depois `click e`) — não por coordenada de tela, que se mostrou não-confiável nesse display (múltiplos scale factors conflitantes entre screencapture e System Events causaram cliques errados, inclusive um clique acidental que abriu a App Store). Guardar esse padrão pra qualquer automação de UI futura no TED.
 
-## ⚠️ Bloqueio real — Outline MCP
+## ✅ Municiamento — Outline MCP (GERENTE + COORD)
 
-Outline (`ted-infra-outline-1`, porta 3002) está no ar, mas **nunca teve nenhum método de autenticação configurado** — sem `GOOGLE_CLIENT_ID`/`SLACK_CLIENT_ID`/OIDC nem SMTP pra auth por email no `docker-compose.yml`. Confirmado via `/api/auth.config` (404) e inspeção da página raiz (nenhuma opção de login presente). **Nenhuma conta existe no Outline hoje** — não dá pra criar uma sem antes configurar um provedor OAuth (decisão do JPM: qual provedor usar) e reiniciar o container com as credenciais novas. Não tentei contornar isso. Fica como pendência real pra próxima sessão.
+O bloqueio inicial ("nenhuma conta existe") estava incompleto — JPM já tinha uma sessão de navegador ativa e logada no workspace "ted" (avatar "Joao Paulo"), então a checagem automática via `/api/auth.config` não capturou isso certo. Com a sessão já aberta, gerar a chave foi direto:
+
+- **Endpoint**: `http://op2-ted.tail2a272d.ts.net:3002/mcp` (confirmado no doc oficial: self-hosted usa `<seu-domínio>/mcp`, só streamable HTTP, sem SSE)
+- **Auth**: API key pessoal gerada em Settings → API e Acesso → Nova chave de API (nome "TED MCP", sem expiração)
+- **Automação**: Safari + System Events, navegação direta pela sidebar (`Chaves de acesso` foi tentativa errada — é passkey biométrico, não API key; `API e Acesso` é a seção certa)
+- **Teste real**: handshake MCP via curl retornou capabilities completas + instructions do servidor "outline" v1.9.2 (regras de formatação de documento, mentions, templates, attachments)
+- **Registrado**: Claude Code (GERENTE + COORD, ambos "✔ Connected") + OpenCode (`opencode.jsonc` dos dois)
+- **Vaultwarden**: item "TED MCP - Outline" criado
+
+### Nota — Bitwarden CLI (`bw`) precisa de pty real
+`bw unlock` via `--passwordenv` ou stdin pipe **crasha** (`ERR_USE_AFTER_CLOSE` no readline) nesta versão (2026.7.0) rodando sem TTY de verdade. Contornado com `expect` (`/usr/bin/expect`, já vem no macOS) simulando um terminal interativo de verdade. Guardar esse padrão pra qualquer uso futuro do `bw` neste cluster — os métodos "documentados" de automação não funcionam aqui.
 
 ## 🔧 Municiamento — 6 MCP servers instalados (GERENTE + COORD)
 

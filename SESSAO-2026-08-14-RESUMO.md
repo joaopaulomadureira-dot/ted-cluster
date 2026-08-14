@@ -2,6 +2,20 @@
 
 **Status geral**: Bug encontrado e corrigido nos 4 nós, validado com reboot real em todos. Cluster confirmado 4/4 online na tailnet ao final da sessão. Depois, primeira leva de 6 MCP servers instalada e testada de ponta a ponta em GERENTE e COORD. Em seguida, n8n MCP instalado e testado; Outline MCP bloqueado (sem auth configurado). Por fim, construído o workflow "Agente Arquiteto" (24 nós) no n8n — criação de agentes por conversa, com Catálogo de Agentes pesquisável.
 
+## 🔧 Reconstrução dos 2 workflows n8n antigos (qualidade de produção)
+
+JPM achou os 2 workflows originais (12/08) "horríveis" — 1-2 caixas cada, sem ramificação real. Reconstruídos via API do n8n (`PUT /api/v1/workflows/:id`), com nós de decisão de verdade (IF/Switch), tratamento de erro, e testados de ponta a ponta com execuções reais (não só "salvou sem erro").
+
+### "TED - Uptime Kuma para Doctor Agent" (10 nós, era 2)
+Webhook → Parseia payload real do Uptime Kuma (`heartbeat.status`, `monitor.name`) → **Switch: down ou up?** → (down) Classifica severidade (crítico: postgres/vaultwarden/n8n/caddy/redis) → notifica Telegram + encaminha pro Doctor em paralelo → **Doctor falhou?** → fallback Telegram se sim, registra incidente no Outline se não → (up) notifica recuperação separada.
+**Testado**: execução real via webhook simulando Uptime Kuma (`status:0`, monitor "Postgres Test") — sucesso ponta a ponta (execução #9), documento real criado no Outline (coleção nova "Incidentes do Cluster", `39eee4fc-25cd-4602-a7ef-051c93ae2553`).
+
+### "TED - Health Check do Router" (15 nós, era 2, renomeado de "Teste do Router Agent")
+Schedule (2h) + disparo manual → testa **Groq, Gemini, NVIDIA, Ollama local individualmente** (não a cascata inteira — se um provider tá com problema, a cascata mascarava isso caindo pro próximo) → normaliza cada resultado → **nó Merge sincronizando os 4** (bug real encontrado e corrigido: sem o Merge, o nó de agregação disparava assim que o primeiro dos 4 terminava, antes dos outros 3 chegarem — corrida de condição) → agrega → **só alerta no Telegram se algum provider estiver fora** (evita spam quando está tudo ok) → loga sempre no Outline.
+**Descoberta real**: `ollama_local` está genuinely fora agora (Router retornou erro vazio) — o health check pegou um problema real de infra, não simulado.
+**Mudança necessária no Router Agent** (`~/ted/router/router_agent.py` no OP1): adicionados 3 `task_type` novos (`test_groq`, `test_gemini`, `test_ollama`) — cascatas de um provider só, sem fallback, pra isolar teste real de cada um (antes só existia isolamento pro NVIDIA). Aditivo, não mudou nenhum comportamento existente. Router reiniciado (`launchctl kickstart`) pra pegar a mudança.
+**Testado**: 3 execuções reais via webhook temporário (removido depois) — as 2 primeiras pegaram falha de DNS transitória (Telegram e depois Outline, resolvida sozinha), a 3ª rodou 100% limpa ponta a ponta (execução #17), documento real no Outline confirmado.
+
 ## 🏗️ Agente Arquiteto — workflow n8n de criação de agentes (24 nós)
 
 **O que é**: o segundo workflow real do ecossistema TED (o primeiro é a conversa via Telegram Gateway→Router). Meta-agente que cria outros agentes por conversa — quando o JPM pede pra criar um agente novo, esse workflow entra em ação: consulta o que já existe (evita duplicar), pode pedir esclarecimento, monta uma especificação, **pede confirmação humana antes de gerar/fazer qualquer coisa**, gera o código, e registra o resultado.

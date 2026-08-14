@@ -79,6 +79,7 @@ async def _criar_no_outline(nome: str, texto: str) -> dict:
                         "title": f"Manutenção — {nome}",
                         "text": f"Documento extraído automaticamente pelo Agente Curador de Manutenção.\n\n---\n\n{trecho}",
                         "publish": True,
+                        "collectionId": OUTLINE_COLLECTION_ID,
                     },
                 },
             }),

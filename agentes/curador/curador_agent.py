@@ -16,6 +16,7 @@ REGISTRO = INBOX / ".processed.json"
 DOCREADER_URL = os.environ.get("DOCREADER_URL", "http://op1-ted.tail2a272d.ts.net:8012/ted/docs/ingest")
 OUTLINE_MCP_URL = os.environ.get("OUTLINE_MCP_URL", "http://op2-ted.tail2a272d.ts.net:3002/mcp")
 OUTLINE_API_KEY = os.environ.get("OUTLINE_API_KEY", "")
+OUTLINE_COLLECTION_ID = os.environ.get("OUTLINE_COLLECTION_ID", "")
 
 INBOX.mkdir(parents=True, exist_ok=True)
 PROCESSADOS_DIR.mkdir(parents=True, exist_ok=True)

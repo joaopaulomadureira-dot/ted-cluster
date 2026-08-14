@@ -7,11 +7,11 @@ set -e
 echo "=== Setup Tailscale Auto-Start ==="
 echo "Nó: $(hostname)"
 
-# 1. Criar diretório .launchagents
-mkdir -p ~/.launchagents
+# 1. Criar diretório correto (~/Library/LaunchAgents — launchd NÃO le ~/.launchagents no boot)
+mkdir -p ~/Library/LaunchAgents
 
 # 2. Criar LaunchAgent plist para Tailscale
-cat > ~/.launchagents/io.tailscale.ted.plist << 'PLIST_EOF'
+cat > ~/Library/LaunchAgents/io.tailscale.ted.plist << 'PLIST_EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">

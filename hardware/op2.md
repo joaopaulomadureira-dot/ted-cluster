@@ -32,11 +32,10 @@
 
 ## Notas críticas
 
-- ⚠️ **Macmini7,1 é de 2011** — CPU Intel i5 dual-core muito antiga
-- **Talvez NÃO tenha AVX2** — pode bloquear OpenCode e Tailscale CLI
+- ✅ **Macmini7,1 é Late 2014** (corrigido) — Haswell i5-4278U, tem AVX2, não bloqueia OpenCode nativo nem Tailscale CLI
+- **Pendência real (14/08/2026):** OP1 foi migrado de OpenCode-via-Docker-wrapper pra nativo depois de descobrir esse erro — OP2 ainda está no wrapper Docker, candidato à mesma simplificação (o Colima continua necessário aqui de qualquer forma, por causa do `ted-infra` stack — só o wrapper específico do OpenCode que pode virar nativo)
 - **Latência Tailscale:** ~116ms média (45-257ms) — em outra rede/localização (WAN)
 - **Espaço em disco:** Excelente para armazenar modelos Ollama (903 GB)
-- **Recomendação Fase 1:** Verificar AVX2, usar como "armazenamento central" se possível
 
 ## Fase 0 status
 

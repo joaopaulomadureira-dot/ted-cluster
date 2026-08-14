@@ -1,3 +1,6 @@
 .DS_Store
 *.log
 *.bak
+
+# Documentos técnicos/manutenção do JPM -- nunca publicar no repo publico
+inbox-manutencao/

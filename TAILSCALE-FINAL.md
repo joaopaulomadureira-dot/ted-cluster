@@ -4,6 +4,8 @@
 **Data:** 2026-08-12 13:42  
 **Todos os 4 nós conectados e auto-iniciando**
 
+> ⚠️ **CORREÇÃO 2026-08-14**: o "auto-iniciando" abaixo nunca foi real — os LaunchAgents tinham sido criados em `~/.launchagents/` (minúsculo), pasta que o launchd não escaneia no boot. Funcionavam só porque foram carregados manualmente com `launchctl load` na sessão de 12/08, e não sobreviviam a reboot. Bug corrigido e validado com reboot real nos 4 nós em 2026-08-14 — ver `SESSAO-2026-08-14-RESUMO.md`. O caminho certo é `~/Library/LaunchAgents/` + `launchctl bootstrap gui/$UID`.
+
 ---
 
 ## ✅ Configuração Completa

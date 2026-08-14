@@ -1,8 +1,26 @@
 # Sessão 14/08/2026 — Resumo (Bug crítico Tailscale autostart corrigido)
 
-**Status geral**: Bug encontrado e corrigido nos 4 nós, validado com reboot real em todos. Cluster confirmado 4/4 online na tailnet ao final da sessão. Depois, primeira leva de 6 MCP servers instalada e testada de ponta a ponta em GERENTE e COORD.
+**Status geral**: Bug encontrado e corrigido nos 4 nós, validado com reboot real em todos. Cluster confirmado 4/4 online na tailnet ao final da sessão. Depois, primeira leva de 6 MCP servers instalada e testada de ponta a ponta em GERENTE e COORD. Em seguida, n8n MCP instalado e testado; Outline MCP bloqueado (sem auth configurado).
 
 ---
+
+## 🔧 Municiamento — n8n MCP (GERENTE + COORD)
+
+n8n já tem MCP nativo desde a v2.34 (confirmado — instância roda 2.34.5). Habilitado via UI (`Settings → Instance-level MCP → Enable MCP access`, sem endpoint REST pra isso, só a UI mesmo) — automatizado via Safari + AppleScript (System Events, clicando elementos AXButton pelo nome, não por coordenada de tela — coordenadas de pixel se mostraram pouco confiáveis nesse ambiente).
+
+- **Server URL**: `http://op2-ted.tail2a272d.ts.net:5678/mcp-server/http`
+- **Auth**: Bearer token dedicado de MCP (gerado na própria tela de conexão, diferente da API key pública do n8n)
+- **Exposição**: todos os workflows expostos ("Expose all workflows to MCP") — só existem os 2 de teste hoje, sem risco
+- **Teste real**: handshake MCP completo via curl, retornou capabilities + instruções detalhadas do SDK de workflow (confirma servidor 100% funcional, não só "conectado")
+- **Registrado**: Claude Code (`claude mcp add`, GERENTE e COORD, ambos "✔ Connected") + OpenCode (`opencode.jsonc` dos dois)
+- **Vaultwarden**: item "TED MCP - n8n" criado com o token
+
+### Nota técnica — automação de browser sem ferramenta dedicada
+Não há Playwright/browser-MCP disponível nesta sessão. O caminho que funcionou: Safari via `osascript`, permissões **Accessibility** e **Screen Recording** liberadas pelo JPM (System Settings), e cliques via System Events **por referência de elemento AXButton encontrado por nome** (`entire contents of window`, filtra `role is "AXButton"` + `name is "X"`, depois `click e`) — não por coordenada de tela, que se mostrou não-confiável nesse display (múltiplos scale factors conflitantes entre screencapture e System Events causaram cliques errados, inclusive um clique acidental que abriu a App Store). Guardar esse padrão pra qualquer automação de UI futura no TED.
+
+## ⚠️ Bloqueio real — Outline MCP
+
+Outline (`ted-infra-outline-1`, porta 3002) está no ar, mas **nunca teve nenhum método de autenticação configurado** — sem `GOOGLE_CLIENT_ID`/`SLACK_CLIENT_ID`/OIDC nem SMTP pra auth por email no `docker-compose.yml`. Confirmado via `/api/auth.config` (404) e inspeção da página raiz (nenhuma opção de login presente). **Nenhuma conta existe no Outline hoje** — não dá pra criar uma sem antes configurar um provedor OAuth (decisão do JPM: qual provedor usar) e reiniciar o container com as credenciais novas. Não tentei contornar isso. Fica como pendência real pra próxima sessão.
 
 ## 🔧 Municiamento — 6 MCP servers instalados (GERENTE + COORD)
 

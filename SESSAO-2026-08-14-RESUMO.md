@@ -116,6 +116,27 @@ O reboot de teste do OP2 expôs sobrecarga real de memória (`vm_stat` mostrou ~
 
 **Não testado com reboot real ainda** (evitado de propósito, pra não sobrecarregar o OP2 de novo agora) — validação real vai acontecer no ciclo natural de hoje à noite (desliga 00h, liga 5h). Conferir `/tmp/ted-docker-cascade.log` no OP2 depois das 5h.
 
+## ✅ Municiamento — 4 agentes autônomos novos (portas 8016-8019)
+
+Construídos e testados de ponta a ponta (não só desenhados) — mesmo padrão dos 6 agentes existentes: FastAPI + LaunchAgent (RunAtLoad/KeepAlive pro serviço, `StartCalendarInterval`/`StartInterval` pro gatilho agendado). Todos com fallback gracioso pra Telegram: se `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID` não estiverem configurados, gravam em `/tmp/ted-<nome>.log` em vez de falhar — funciona sem retrabalho assim que o token existir.
+
+| Agente | Porta | Nó | Agenda | Teste real |
+|---|---|---|---|---|
+| Resumo Matinal | 8016 | OP1 | diário 5:30 | Chamada real: coletou status dos 6 agentes + log do Auditor + log da cascata Docker do OP2 (via SSH), salvou em log local |
+| Guardião de Segredos | 8017 | OP1 | semanal (domingo 6h) | Clonou o repo público `ted-cluster` de verdade, rodou `gitleaks detect` (instalado via Homebrew) — 0 segredos encontrados |
+| Curador de Manutenção | 8018 | **GERENTE** (pasta de inbox fica lá) | a cada 5 min | 3 PDFs de teste reais processados: extraídos (`pdftotext`), indexados no ChromaDB via Doc Reader (porta 8012), documento real criado no Outline (coleção "Manutenção" nova) — confirmado com ID de documento real retornado |
+| Cota de API | 8019 | OP1 | a cada 4h | Router Agent patched com contador de uso real (`/tmp/ted-router-uso.json`, por provedor/dia) — testado com chamada real ao Router, contador incrementou corretamente |
+
+### Achado de segurança corrigido antes de construir o Curador
+O hook de auto-commit do `~/Ted` faz `git add -A` (tudo, não só o arquivo editado) sempre que Claude Code edita qualquer coisa ali. Como a pasta de inbox de manutenção fica dentro de `~/Ted/inbox-manutencao/`, os PDFs técnicos do JPM seriam publicados no repo **público** do GitHub sem querer. Adicionado `inbox-manutencao/` ao `.gitignore` antes de criar a pasta — nenhum PDF real chegou a vazar.
+
+### Decisões técnicas não-óbvias
+- **OP1 não tinha chave SSH própria** pra sair (só recebia). Gerada `~/.ssh/ted_rsa_op1` no OP1 e propagada pro `authorized_keys` do OP2 — necessário pro Resumo Matinal buscar o log da cascata Docker. Precisa de `-o StrictHostKeyChecking=accept-new` no primeiro uso de cada hostname (hostname Tailscale e IP contam como hosts diferentes pro known_hosts).
+- **Colima do OP1 já estava funcionando** quando checamos (fork anterior aparentemente resolveu o VM subjacente) — só `colima status` reporta erro cosmético ("empty value"). `docker ps` funciona normal. Não precisou de `colima delete`.
+- **Curador roda no GERENTE, não no OP1** — única exceção ao padrão, porque a pasta de inbox faz mais sentido ficar onde o JPM trabalha. Criado venv Python dedicado em `~/Ted/agentes/curador/venv/` (GERENTE não tinha FastAPI/uvicorn instalado globalmente).
+- **Outline `create_document` exige `collectionId`** quando `publish: true` — criada coleção "Manutenção" (ID `7b82479d-7099-4341-acd6-92e93455900e`) via MCP antes de testar.
+- **`bw` CLI precisa de `expect`** pra desbloquear sem crashar (já documentado na seção do Outline MCP acima) — usado de novo aqui pra buscar a chave do Outline pro Curador.
+
 ## 🧠 Lição para outros LaunchAgents do projeto
 
 Qualquer LaunchAgent futuro (do Ted ou de outro serviço) deve ser criado direto em `~/Library/LaunchAgents/` e carregado com `launchctl bootstrap gui/$UID` — não `~/.launchagents/` nem `launchctl load` (deprecated, mascarava o bug porque carrega mas não persiste a associação correta com o boot).

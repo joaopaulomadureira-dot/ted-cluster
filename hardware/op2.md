@@ -4,9 +4,9 @@
 
 - Modelo: Mac mini
 - Identificador: Macmini7,1
-- Ano/geração: 2011-2012 (Intel era antiga, igual OP1)
-- CPU: Intel Core i5 dual-core (2 cores)
-- AVX2: ⚠️ VERIFICAR (CPU 2011, muito provável que NÃO tem AVX2)
+- Ano/geração: **Late 2014** (corrigido 14/08/2026 — doc original dizia "2011-2012" errado, igual OP1)
+- CPU: Intel Core i5-4278U (Haswell) dual-core @ 2.60GHz (confirmado idêntico ao OP1)
+- AVX2: ✅ **SIM** (corrigido 14/08/2026 — confirmado via `sysctl hw.optional.avx2_0` = 1)
 - RAM: 8 GB
 - Disco interno: 931 GB total, 12 GB utilizado, 903 GB livre (2% capacity)
   - **⚠️ MUITO MAIS ESPAÇO que OP1** (903 GB vs 176 GB)

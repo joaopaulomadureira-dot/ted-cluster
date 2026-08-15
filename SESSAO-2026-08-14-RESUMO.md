@@ -216,3 +216,42 @@ Testado e confirmado rodando nativo sem SIGILL: `node` (v26.7.0), `npx` (executo
 Chave SSH nova gerada (`~/.ssh/ted_rsa_op1` no OP1, comentário `op1-outbound-ted`) e autorizada no OP2 — necessária pro túnel do Docker MCP (mesmo padrão de GERENTE/COORD, mas OP1 precisava da própria chave de saída).
 
 **Resultado: bloqueio 100% resolvido.** OP1 agora tem paridade completa com GERENTE/COORD nos 6 MCPs, rodando nativo (sem Docker), mais rápido e mais simples que a abordagem original.
+
+---
+
+## 🌙 Fechamento da sessão — 14/08/2026, fim de tarde
+
+JPM foi dormir, GERENTE vai ser desligado. Estado do cluster no momento do fechamento:
+
+### Status dos 4 nós
+| Nó | Status |
+|---|---|
+| GERENTE | ✅ Saudável — Tailscale caiu no meio da sessão (processo vivo, conexão em estado "stopped" — bug real: o watchdog `io.tailscale.ted` só verifica se o processo existe, não se a conexão está ativa) e foi religado manualmente com `tailscale up` |
+| COORD | ✅ Saudável |
+| OP1 | ✅ Saudável — os 10 agentes rodando (Router, Doctor, Doc Reader, Orchestrator, Auditor, MCP Agent, Resumo Matinal, Guardião de Segredos, Cota de API, Telegram Gateway) |
+| OP2 | ❌ **Offline na rede** (não só os serviços — o próprio Tailscale dele parou de responder), desde ~13:35, ainda offline no fechamento da sessão. Sem acesso físico — vai precisar se recuperar sozinho ou aguardar o ciclo de energia das 00h/05h |
+
+### ⚠️ Bug real descoberto e não corrigido ainda: watchdog do Tailscale é cego pra conexão "stopped"
+O LaunchAgent `io.tailscale.ted` (corrigido hoje de manhã pro bug de path) só checa `pgrep -f Tailscale` — se o processo está vivo. Mas hoje à tarde o Tailscale do GERENTE ficou com processo vivo e conexão VPN logicamente parada (`tailscale status` reportava "Tailscale is stopped"), e o watchdog não percebeu nem corrigiu, porque pra ele "processo rodando" = "tudo bem". **Correção real pendente pra próxima sessão**: trocar o watchdog pra também rodar `tailscale status` (ou `tailscale up` idempotente) periodicamente, não só `pgrep`. É provável que o mesmo tenha acontecido no OP2 (mesmo sintoma, sem forma de confirmar remotamente agora).
+
+### Pendência real do Agente Arquiteto
+Nós 1-14 confirmados funcionando com dados reais (ver seção acima). Nós 15-20 (geração de código, deploy, registro no catálogo, notificação final) não foram testados — bloqueado pela queda do OP2 na reta final. Retomar assim que o OP2 voltar.
+
+### Telegram — status incerto, JPM reportou "não está rodando"
+Gateway (porta 8020, OP1) está de pé, saudável, com config correta (token/chat_id certos), e o contador de mensagens processadas (`offset`) avançou de forma consistente com estar processando mensagens reais. Não foi possível confirmar 100% que as respostas estão chegando de volta no Telegram do JPM antes do fechamento da sessão (ele não confirmou o teste pedido). **Primeira coisa a verificar na próxima sessão**: pedir pro JPM mandar uma mensagem de teste e conferir se chega resposta.
+
+### Tudo que ficou pronto e testado hoje (resumo do resumo)
+- Bug crítico do Tailscale autostart corrigido e validado com reboot real nos 4 nós
+- OP2: cascata de subida sequencial dos 12 containers (evita sobrecarga de memória no boot)
+- 11 MCP servers instalados (Filesystem, Sequential Thinking, Fetch, Postgres, Docker, GitHub, n8n, Outline — todos GERENTE/COORD/OP1; Telegram pendente de teste)
+- Descoberta de hardware: OP1 e OP2 são Late 2014 (não 2011) com AVX2 — corrigido nos docs
+- 10 agentes autônomos rodando (6 originais + Resumo Matinal, Guardião de Segredos, Curador de Manutenção, Cota de API)
+- Bot do Telegram "Ted" (@HermesJoaoBot) criado, renomeado, chat ID do JPM capturado
+- Gateway Telegram bidirecional construído (porta 8020, OP1) — status de resposta incerto, ver acima
+- Workflow "Agente Arquiteto" (24 nós) — meta-agente que cria outros agentes por conversa, com Catálogo de Agentes pesquisável via ChromaDB — nós 1-14 confirmados, 15-20 pendentes
+- 2 workflows n8n antigos reconstruídos com qualidade de produção (Uptime Kuma→Doctor, Health Check do Router)
+- Vaultwarden: chaves do GitHub MCP, n8n MCP e Outline MCP migradas (resto ainda no arquivo iCloud)
+- 2 artifacts publicados: Catálogo de Ferramentas TED e Masterplan de Agentes TED
+- Vários bugs reais de n8n documentados (referência `.item` quebrando após HTTP Request, GET-only nos webhooks de retomada de Wait node) — lição registrada pra qualquer workflow futuro
+
+**Próxima sessão começa por**: (1) confirmar se o OP2 voltou sozinho, (2) testar se o Telegram está respondendo de verdade, (3) corrigir o watchdog do Tailscale pra detectar conexão parada, (4) terminar de testar os nós 15-20 do Agente Arquiteto.

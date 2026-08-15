@@ -2,6 +2,19 @@
 
 **Status geral**: Bug encontrado e corrigido nos 4 nós, validado com reboot real em todos. Cluster confirmado 4/4 online na tailnet ao final da sessão. Depois, primeira leva de 6 MCP servers instalada e testada de ponta a ponta em GERENTE e COORD. Em seguida, n8n MCP instalado e testado; Outline MCP bloqueado (sem auth configurado). Por fim, construído o workflow "Agente Arquiteto" (24 nós) no n8n — criação de agentes por conversa, com Catálogo de Agentes pesquisável.
 
+## 🐛 Agente Arquiteto — 4 bugs reais encontrados e corrigidos (teste final dos nós 7-20)
+
+Continuação do teste que ficou pendente. Encontrados e corrigidos, com evidência real de cada um (via API do n8n, execuções reais inspecionadas nó a nó):
+
+1. **Nó 9 (Gerar Especificação) perdia o pedido original** — usava `{{ $json.pedido_original }}`, mas o nó 7 (chamada HTTP pro Router, entre o nó 6 e o nó 9) sobrescreve `$json` inteiro com sua própria resposta `{resposta, provedor_usado}`. Fix: `$('6. Montar Contexto de Design').first().json.pedido_original` (referência explícita por nome, não `$json` genérico).
+2. **`.item` quebra com nós HTTP Request no meio do caminho** (bug conhecido do n8n — HTTP Request nem sempre propaga `pairedItem` corretamente). Trocado `.item.json` por `.first().json` em 7 nós do workflow inteiro, preventivo.
+3. **chat_id sumindo em 6 nós que mandam Telegram** — mesma causa raiz (referência genérica a `$json.chat_id` depois de um nó HTTP no meio). Como é sistema de usuário único, resolvido fixando o chat_id do JPM (`8563994980`) direto nesses 6 nós em vez de depender de referência frágil entre nós.
+4. **Nó 14 (JPM Confirmou?) checava `$json.body.resposta`** — mas o webhook de retomada do Wait node só aceita **GET** (POST dá 404 "no matching path/method"), e GET nunca populado `body`, só `query`. Fix: mudar a condição pra checar `$json.query.resposta`, com operador simples de "contém" (a versão com `||` e boolean composto não funcionou de forma confiável, simplificado).
+
+**Confirmado com execução real**: nós 1-14 rodando limpo (webhook → classificação → catálogo → geração de especificação real → confirmação humana real chegando no Telegram do JPM → retomada da confirmação funcionando). Nós 15-20 (geração de código, deploy, registro no catálogo, notificação final) ficaram sem confirmação final — o OP2 ficou instável de novo no meio do teste (`503 Database is not ready`, resume parando de responder), mesma fragilidade sob carga já documentada nesta sessão. Não insisti numa máquina instável; retomar quando o OP2 estiver estável.
+
+**Lição pro próximo workflow n8n complexo**: sempre que uma cadeia de nós inclui uma chamada HTTP Request no meio, qualquer nó depois dela que precise de um dado de *antes* da chamada HTTP deve referenciar o nó de origem pelo nome (`$('Nome do Nó').first().json.campo`), nunca `$json.campo` genérico — o HTTP Request sempre substitui o item inteiro pela resposta.
+
 ## 🔧 Reconstrução dos 2 workflows n8n antigos (qualidade de produção)
 
 JPM achou os 2 workflows originais (12/08) "horríveis" — 1-2 caixas cada, sem ramificação real. Reconstruídos via API do n8n (`PUT /api/v1/workflows/:id`), com nós de decisão de verdade (IF/Switch), tratamento de erro, e testados de ponta a ponta com execuções reais (não só "salvou sem erro").

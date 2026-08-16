@@ -5,7 +5,10 @@ import subprocess
 from pathlib import Path
 import httpx
 from datetime import datetime, timezone
+from dotenv import load_dotenv
 from fastapi import FastAPI
+
+load_dotenv(Path(__file__).parent / ".env")
 
 app = FastAPI()
 

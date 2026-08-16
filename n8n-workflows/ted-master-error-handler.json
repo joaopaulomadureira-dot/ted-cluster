@@ -1,0 +1,88 @@
+[
+ {
+  "name": "TED - Master Error Handler",
+  "nodes": [
+   {
+    "id": "e1_trigger",
+    "name": "1. Erro em qualquer execucao",
+    "type": "n8n-nodes-base.errorTrigger",
+    "typeVersion": 1,
+    "position": [
+     0,
+     300
+    ],
+    "parameters": {}
+   },
+   {
+    "id": "e2_formata",
+    "name": "2. Formata Mensagem de Erro",
+    "type": "n8n-nodes-base.code",
+    "typeVersion": 2,
+    "position": [
+     260,
+     300
+    ],
+    "parameters": {
+     "jsCode": "const wf = $json.workflow || {};\nconst exec = $json.execution || {};\nconst err = exec.error || {};\nconst texto = '\\u26a0\\ufe0f TED Master: erro no fluxo \\\"' + (wf.name || '?') + '\\\"\\n' +\n  'No: ' + (exec.lastNodeExecuted || '?') + '\\n' +\n  'Erro: ' + (err.message || JSON.stringify(err)).slice(0, 500) + '\\n' +\n  'Sua mensagem pode nao ter sido respondida -- tente de novo, e isso ja foi registrado.';\nreturn [{ json: { texto } }];"
+    }
+   },
+   {
+    "id": "e3_telegram",
+    "name": "3. Avisa no Telegram (JPM)",
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4.2,
+    "position": [
+     520,
+     300
+    ],
+    "parameters": {
+     "url": "={{ \"https://api.telegram.org/bot\" + $env.TELEGRAM_BOT_TOKEN + \"/sendMessage\" }}",
+     "method": "POST",
+     "options": {
+      "timeout": 15000
+     },
+     "sendBody": true,
+     "specifyBody": "keypair",
+     "bodyParameters": {
+      "parameters": [
+       {
+        "name": "chat_id",
+        "value": "8563994980"
+       },
+       {
+        "name": "text",
+        "value": "={{ $json.texto }}"
+       }
+      ]
+     }
+    }
+   }
+  ],
+  "connections": {
+   "1. Erro em qualquer execucao": {
+    "main": [
+     [
+      {
+       "node": "2. Formata Mensagem de Erro",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "2. Formata Mensagem de Erro": {
+    "main": [
+     [
+      {
+       "node": "3. Avisa no Telegram (JPM)",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   }
+  },
+  "settings": {},
+  "id": "tedMasterErrHandler01"
+ }
+]

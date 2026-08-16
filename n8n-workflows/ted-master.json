@@ -1,0 +1,717 @@
+[
+ {
+  "updatedAt": "2026-08-16T20:10:04.413Z",
+  "createdAt": "2026-08-16T20:10:04.413Z",
+  "id": "aDSOaoPHQaeTsJUu",
+  "name": "TED - Master (espinha dorsal do ecossistema)",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+   {
+    "id": "n1_webhook",
+    "name": "1. Webhook TED Master",
+    "type": "n8n-nodes-base.webhook",
+    "typeVersion": 2,
+    "position": [
+     0,
+     500
+    ],
+    "parameters": {
+     "path": "ted-master",
+     "httpMethod": "POST",
+     "responseMode": "onReceived",
+     "options": {}
+    },
+    "webhookId": "ted-master"
+   },
+   {
+    "id": "n2_classifica",
+    "name": "2. Classificar Dominio (IA rapida)",
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4.2,
+    "position": [
+     220,
+     500
+    ],
+    "parameters": {
+     "url": "http://100.112.109.38:8010/ted/router",
+     "method": "POST",
+     "options": {
+      "timeout": 60000
+     },
+     "sendBody": true,
+     "specifyBody": "keypair",
+     "bodyParameters": {
+      "parameters": [
+       {
+        "name": "prompt",
+        "value": "=Classifique a mensagem abaixo em UM dominio. Responda com UMA UNICA PALAVRA, nada mais, escolhendo entre: INFRA, DOCUMENTOS, CRIAR_AGENTE, CONVERSA.\n\nINFRA = perguntas sobre saude/status/erro do proprio cluster TED (ex: 'o OP2 esta funcionando?', 'como esta o cluster', 'tem algum agente caido')\nDOCUMENTOS = perguntas sobre o que ja foi decidido/documentado/construido no ecossistema TED (ex: 'o que e o P1', 'quais agentes existem', 'como funciona o backup')\nCRIAR_AGENTE = pedido explicito de criar/construir um agente ou automacao nova (ex: 'cria um agente que le meu email')\nCONVERSA = qualquer outra coisa (conversa geral, pergunta fora do TED, pedido de ajuda generico)\n\nExemplo: 'o router esta respondendo?' -> INFRA\nExemplo: 'quantos agentes o TED tem hoje?' -> DOCUMENTOS\nExemplo: 'monta um agente de leitura facial' -> CRIAR_AGENTE\nExemplo: 'bom dia, tudo bem?' -> CONVERSA\n\nMensagem: {{ $json.body.mensagem }}\n\nResposta (uma palavra so):"
+       },
+       {
+        "name": "task_type",
+        "value": "fast"
+       }
+      ]
+     }
+    }
+   },
+   {
+    "id": "n3_extrai",
+    "name": "3. Extrai Classificacao",
+    "type": "n8n-nodes-base.code",
+    "typeVersion": 2,
+    "position": [
+     440,
+     500
+    ],
+    "parameters": {
+     "jsCode": "const resp = ($json.resposta || '').trim().toUpperCase();\nlet dominio = 'CONVERSA';\nif (resp.includes('INFRA')) dominio = 'INFRA';\nelse if (resp.includes('DOCUMENTOS')) dominio = 'DOCUMENTOS';\nelse if (resp.includes('CRIAR')) dominio = 'CRIAR_AGENTE';\nreturn [{ json: { dominio } }];"
+    }
+   },
+   {
+    "id": "n4_if_infra",
+    "name": "4. E Pedido de Infra?",
+    "type": "n8n-nodes-base.if",
+    "typeVersion": 2,
+    "position": [
+     660,
+     500
+    ],
+    "parameters": {
+     "conditions": {
+      "options": {
+       "caseSensitive": true,
+       "typeValidation": "loose"
+      },
+      "conditions": [
+       {
+        "leftValue": "={{ $json.dominio }}",
+        "rightValue": "INFRA",
+        "operator": {
+         "type": "string",
+         "operation": "contains"
+        }
+       }
+      ],
+      "combinator": "and"
+     }
+    }
+   },
+   {
+    "id": "n5a_auditor",
+    "name": "5a. Roda Auditoria do Cluster",
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4.2,
+    "position": [
+     880,
+     260
+    ],
+    "parameters": {
+     "url": "http://100.112.109.38:8014/ted/auditor/run",
+     "method": "POST",
+     "options": {
+      "timeout": 90000
+     },
+     "sendBody": true,
+     "specifyBody": "keypair",
+     "bodyParameters": {
+      "parameters": []
+     }
+    }
+   },
+   {
+    "id": "n6a_formata",
+    "name": "6a. Formata Resultado da Auditoria",
+    "type": "n8n-nodes-base.code",
+    "typeVersion": 2,
+    "position": [
+     1100,
+     260
+    ],
+    "parameters": {
+     "jsCode": "const d = $json;\nconst achados = d.achados || [];\nlet texto;\nif (achados.length === 0) {\n  texto = 'TED - Auditoria de infraestrutura: cluster 100% saudavel, nenhum achado.';\n} else {\n  const linhas = achados.map((a, i) => {\n    const acao = (d.acoes || [])[i] || {};\n    const consenso = acao.consenso || {};\n    const status = consenso.consenso ? ('corrigido automaticamente: ' + (acao.resultado_acao || '')) : 'sinalizado, sem autofix';\n    return '- ' + (a.tipo || 'achado') + ' (' + (a.agente || '?') + '): ' + status;\n  });\n  texto = 'TED - Auditoria de infraestrutura encontrou ' + achados.length + ' item(ns):\\n' + linhas.join('\\n');\n}\nreturn [{ json: { texto } }];"
+    }
+   },
+   {
+    "id": "n7a_telegram",
+    "name": "7a. Responde no Telegram",
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4.2,
+    "position": [
+     1320,
+     260
+    ],
+    "parameters": {
+     "url": "={{ \"https://api.telegram.org/bot\" + $env.TELEGRAM_BOT_TOKEN + \"/sendMessage\" }}",
+     "method": "POST",
+     "options": {
+      "timeout": 60000
+     },
+     "sendBody": true,
+     "specifyBody": "keypair",
+     "bodyParameters": {
+      "parameters": [
+       {
+        "name": "chat_id",
+        "value": "={{ $('1. Webhook TED Master').first().json.body.chat_id || 8563994980 }}"
+       },
+       {
+        "name": "text",
+        "value": "={{ $json.texto }}"
+       }
+      ]
+     }
+    }
+   },
+   {
+    "id": "n8a_outline",
+    "name": "8a. Loga no Outline",
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4.2,
+    "position": [
+     1540,
+     260
+    ],
+    "parameters": {
+     "url": "http://100.93.114.31:3002/api/documents.create",
+     "method": "POST",
+     "options": {
+      "timeout": 15000
+     },
+     "sendBody": true,
+     "specifyBody": "json",
+     "jsonBody": "={\"title\": \"TED Master - consulta INFRA - {{ new Date().toISOString() }}\", \"text\": \"Pergunta: {{ $('1. Webhook TED Master').first().json.body.mensagem }}\\n\\nResposta:\\n{{ $json.texto }}\", \"collectionId\": \"39eee4fc-25cd-4602-a7ef-051c93ae2553\", \"publish\": true}",
+     "sendHeaders": true,
+     "headerParameters": {
+      "parameters": [
+       {
+        "name": "Authorization",
+        "value": "Bearer ol_api_D4MgezCK8PNXTOWr3nh8gNUmQCJo1GpJPQTXc2"
+       }
+      ]
+     }
+    }
+   },
+   {
+    "id": "n5_if_docs",
+    "name": "5. E Pergunta de Documentos?",
+    "type": "n8n-nodes-base.if",
+    "typeVersion": 2,
+    "position": [
+     880,
+     560
+    ],
+    "parameters": {
+     "conditions": {
+      "options": {
+       "caseSensitive": true,
+       "typeValidation": "loose"
+      },
+      "conditions": [
+       {
+        "leftValue": "={{ $json.dominio }}",
+        "rightValue": "DOCUMENTOS",
+        "operator": {
+         "type": "string",
+         "operation": "contains"
+        }
+       }
+      ],
+      "combinator": "and"
+     }
+    }
+   },
+   {
+    "id": "n6b_docs",
+    "name": "6b. Consulta Doc Reader",
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4.2,
+    "position": [
+     1100,
+     440
+    ],
+    "parameters": {
+     "url": "http://100.112.109.38:8012/ted/docs/query",
+     "method": "POST",
+     "options": {
+      "timeout": 60000
+     },
+     "sendBody": true,
+     "specifyBody": "keypair",
+     "bodyParameters": {
+      "parameters": [
+       {
+        "name": "pergunta",
+        "value": "={{ $('1. Webhook TED Master').first().json.body.mensagem }}"
+       },
+       {
+        "name": "top_k",
+        "value": "3"
+       }
+      ]
+     }
+    }
+   },
+   {
+    "id": "n7b_formata",
+    "name": "7b. Formata Resultado da Busca",
+    "type": "n8n-nodes-base.code",
+    "typeVersion": 2,
+    "position": [
+     1320,
+     440
+    ],
+    "parameters": {
+     "jsCode": "const resultados = $json.resultados || [];\nlet texto;\nif (resultados.length === 0) {\n  texto = 'TED - Nao encontrei nada indexado sobre isso no catalogo do cluster.';\n} else {\n  const melhor = resultados[0];\n  texto = 'TED - Encontrei isto (fonte: ' + melhor.fonte + '):\\n\\n' + melhor.trecho;\n}\nreturn [{ json: { texto } }];"
+    }
+   },
+   {
+    "id": "n8b_telegram",
+    "name": "8b. Responde no Telegram",
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4.2,
+    "position": [
+     1540,
+     440
+    ],
+    "parameters": {
+     "url": "={{ \"https://api.telegram.org/bot\" + $env.TELEGRAM_BOT_TOKEN + \"/sendMessage\" }}",
+     "method": "POST",
+     "options": {
+      "timeout": 60000
+     },
+     "sendBody": true,
+     "specifyBody": "keypair",
+     "bodyParameters": {
+      "parameters": [
+       {
+        "name": "chat_id",
+        "value": "={{ $('1. Webhook TED Master').first().json.body.chat_id || 8563994980 }}"
+       },
+       {
+        "name": "text",
+        "value": "={{ $json.texto }}"
+       }
+      ]
+     }
+    }
+   },
+   {
+    "id": "n9b_outline",
+    "name": "9b. Loga no Outline",
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4.2,
+    "position": [
+     1760,
+     440
+    ],
+    "parameters": {
+     "url": "http://100.93.114.31:3002/api/documents.create",
+     "method": "POST",
+     "options": {
+      "timeout": 15000
+     },
+     "sendBody": true,
+     "specifyBody": "json",
+     "jsonBody": "={\"title\": \"TED Master - consulta DOCUMENTOS - {{ new Date().toISOString() }}\", \"text\": \"Pergunta: {{ $('1. Webhook TED Master').first().json.body.mensagem }}\\n\\nResposta:\\n{{ $json.texto }}\", \"collectionId\": \"39eee4fc-25cd-4602-a7ef-051c93ae2553\", \"publish\": true}",
+     "sendHeaders": true,
+     "headerParameters": {
+      "parameters": [
+       {
+        "name": "Authorization",
+        "value": "Bearer ol_api_D4MgezCK8PNXTOWr3nh8gNUmQCJo1GpJPQTXc2"
+       }
+      ]
+     }
+    }
+   },
+   {
+    "id": "n6_if_criar",
+    "name": "6. E Pedido de Criar Agente?",
+    "type": "n8n-nodes-base.if",
+    "typeVersion": 2,
+    "position": [
+     1100,
+     680
+    ],
+    "parameters": {
+     "conditions": {
+      "options": {
+       "caseSensitive": true,
+       "typeValidation": "loose"
+      },
+      "conditions": [
+       {
+        "leftValue": "={{ $json.dominio }}",
+        "rightValue": "CRIAR",
+        "operator": {
+         "type": "string",
+         "operation": "contains"
+        }
+       }
+      ],
+      "combinator": "and"
+     }
+    }
+   },
+   {
+    "id": "n7c_arquiteto",
+    "name": "7c. Encaminha pro Agente Arquiteto",
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4.2,
+    "position": [
+     1320,
+     620
+    ],
+    "parameters": {
+     "url": "http://localhost:5678/webhook/agente-arquiteto",
+     "method": "POST",
+     "options": {
+      "timeout": 60000
+     },
+     "sendBody": true,
+     "specifyBody": "keypair",
+     "bodyParameters": {
+      "parameters": [
+       {
+        "name": "mensagem",
+        "value": "={{ $('1. Webhook TED Master').first().json.body.mensagem }}"
+       }
+      ]
+     }
+    }
+   },
+   {
+    "id": "n8c_outline",
+    "name": "8c. Loga no Outline",
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4.2,
+    "position": [
+     1540,
+     620
+    ],
+    "parameters": {
+     "url": "http://100.93.114.31:3002/api/documents.create",
+     "method": "POST",
+     "options": {
+      "timeout": 15000
+     },
+     "sendBody": true,
+     "specifyBody": "json",
+     "jsonBody": "={\"title\": \"TED Master - pedido CRIAR_AGENTE - {{ new Date().toISOString() }}\", \"text\": \"Encaminhado pro Agente Arquiteto: {{ $('1. Webhook TED Master').first().json.body.mensagem }}\", \"collectionId\": \"39eee4fc-25cd-4602-a7ef-051c93ae2553\", \"publish\": true}",
+     "sendHeaders": true,
+     "headerParameters": {
+      "parameters": [
+       {
+        "name": "Authorization",
+        "value": "Bearer ol_api_D4MgezCK8PNXTOWr3nh8gNUmQCJo1GpJPQTXc2"
+       }
+      ]
+     }
+    }
+   },
+   {
+    "id": "n7d_router",
+    "name": "7d. Consulta Router (cascata padrao)",
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4.2,
+    "position": [
+     1320,
+     740
+    ],
+    "parameters": {
+     "url": "http://100.112.109.38:8010/ted/router",
+     "method": "POST",
+     "options": {
+      "timeout": 90000
+     },
+     "sendBody": true,
+     "specifyBody": "keypair",
+     "bodyParameters": {
+      "parameters": [
+       {
+        "name": "prompt",
+        "value": "={{ $('1. Webhook TED Master').first().json.body.mensagem }}"
+       },
+       {
+        "name": "task_type",
+        "value": "default"
+       }
+      ]
+     }
+    }
+   },
+   {
+    "id": "n8d_formata",
+    "name": "8d. Formata Resposta",
+    "type": "n8n-nodes-base.code",
+    "typeVersion": 2,
+    "position": [
+     1540,
+     740
+    ],
+    "parameters": {
+     "jsCode": "const texto = ($json.resposta || '(sem resposta)') + '\\n\\n-- via ' + ($json.provedor_usado || '?');\nreturn [{ json: { texto } }];"
+    }
+   },
+   {
+    "id": "n9d_telegram",
+    "name": "9d. Responde no Telegram",
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4.2,
+    "position": [
+     1760,
+     740
+    ],
+    "parameters": {
+     "url": "={{ \"https://api.telegram.org/bot\" + $env.TELEGRAM_BOT_TOKEN + \"/sendMessage\" }}",
+     "method": "POST",
+     "options": {
+      "timeout": 60000
+     },
+     "sendBody": true,
+     "specifyBody": "keypair",
+     "bodyParameters": {
+      "parameters": [
+       {
+        "name": "chat_id",
+        "value": "={{ $('1. Webhook TED Master').first().json.body.chat_id || 8563994980 }}"
+       },
+       {
+        "name": "text",
+        "value": "={{ $json.texto }}"
+       }
+      ]
+     }
+    }
+   }
+  ],
+  "connections": {
+   "1. Webhook TED Master": {
+    "main": [
+     [
+      {
+       "node": "2. Classificar Dominio (IA rapida)",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "2. Classificar Dominio (IA rapida)": {
+    "main": [
+     [
+      {
+       "node": "3. Extrai Classificacao",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "3. Extrai Classificacao": {
+    "main": [
+     [
+      {
+       "node": "4. E Pedido de Infra?",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "5a. Roda Auditoria do Cluster": {
+    "main": [
+     [
+      {
+       "node": "6a. Formata Resultado da Auditoria",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "6a. Formata Resultado da Auditoria": {
+    "main": [
+     [
+      {
+       "node": "7a. Responde no Telegram",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "7a. Responde no Telegram": {
+    "main": [
+     [
+      {
+       "node": "8a. Loga no Outline",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "4. E Pedido de Infra?": {
+    "main": [
+     [
+      {
+       "node": "5a. Roda Auditoria do Cluster",
+       "type": "main",
+       "index": 0
+      }
+     ],
+     [
+      {
+       "node": "5. E Pergunta de Documentos?",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "6b. Consulta Doc Reader": {
+    "main": [
+     [
+      {
+       "node": "7b. Formata Resultado da Busca",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "7b. Formata Resultado da Busca": {
+    "main": [
+     [
+      {
+       "node": "8b. Responde no Telegram",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "8b. Responde no Telegram": {
+    "main": [
+     [
+      {
+       "node": "9b. Loga no Outline",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "5. E Pergunta de Documentos?": {
+    "main": [
+     [
+      {
+       "node": "6b. Consulta Doc Reader",
+       "type": "main",
+       "index": 0
+      }
+     ],
+     [
+      {
+       "node": "6. E Pedido de Criar Agente?",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "7c. Encaminha pro Agente Arquiteto": {
+    "main": [
+     [
+      {
+       "node": "8c. Loga no Outline",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "6. E Pedido de Criar Agente?": {
+    "main": [
+     [
+      {
+       "node": "7c. Encaminha pro Agente Arquiteto",
+       "type": "main",
+       "index": 0
+      }
+     ],
+     [
+      {
+       "node": "7d. Consulta Router (cascata padrao)",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "7d. Consulta Router (cascata padrao)": {
+    "main": [
+     [
+      {
+       "node": "8d. Formata Resposta",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "8d. Formata Resposta": {
+    "main": [
+     [
+      {
+       "node": "9d. Responde no Telegram",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   }
+  },
+  "settings": {
+   "executionOrder": "v1",
+   "errorWorkflow": "tedMasterErrHandler01"
+  },
+  "staticData": null,
+  "meta": null,
+  "nodeGroups": [],
+  "pinData": null,
+  "versionId": "6d954982-ecb7-4571-b9a4-01768aa77744",
+  "activeVersionId": "6d954982-ecb7-4571-b9a4-01768aa77744",
+  "versionCounter": 1,
+  "triggerCount": 1,
+  "sourceWorkflowId": null,
+  "tags": [],
+  "shared": [
+   {
+    "updatedAt": "2026-08-16T20:10:04.418Z",
+    "createdAt": "2026-08-16T20:10:04.418Z",
+    "role": "workflow:owner",
+    "workflowId": "aDSOaoPHQaeTsJUu",
+    "projectId": "D2kskA14R3DnyXJs",
+    "project": {
+     "updatedAt": "2026-08-13T21:57:42.607Z",
+     "createdAt": "2026-08-13T21:05:12.092Z",
+     "id": "D2kskA14R3DnyXJs",
+     "name": "JPM Ted <joao.paulo.madureira@icloud.com>",
+     "type": "personal",
+     "icon": null,
+     "description": null,
+     "customTelemetryTags": [],
+     "creatorId": "ade3b3d5-5d2c-4bc5-9c4e-0af39fe922b8"
+    }
+   }
+  ],
+  "versionMetadata": {
+   "name": null,
+   "description": null
+  }
+ }
+]

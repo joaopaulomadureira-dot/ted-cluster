@@ -16,17 +16,23 @@ GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 NVIDIA_API_KEY = os.environ.get("NVIDIA_API_KEY", "")
 OPENROUTER_KEY = os.environ.get("OPENROUTER_KEY", "")
 
+# OP3 = VM Google Cloud, 5o no da tailnet (ver GCP-VM-SETUP.md). Ollama direto via Tailscale,
+# nao passa pelo TED GATE do OP2. Fica inativo (falha rapido, cai pro proximo da cascata)
+# ate essas duas variaveis serem configuradas.
+OP3_OLLAMA_URL = os.environ.get("OP3_OLLAMA_URL", "")
+OP3_OLLAMA_MODEL = os.environ.get("OP3_OLLAMA_MODEL", "gemma2:2b")
+
 # cascata automatica (fallback em sequencia). openrouter fica de fora --
 # so acessivel explicito via task_type="openrouter" (secao 6.1 do v1.1: OpenRouter/Anthropic sao manuais)
 CASCATA = {
-    "local": ["ollama_local", "groq", "gemini_gemma"],
+    "local": ["ollama_local", "ollama_op3", "groq", "gemini_gemma"],
     "fast": ["groq", "ollama_local", "gemini_gemma"],
     "code": ["ollama_cod", "groq"],
     "escrita": ["ollama_escrita", "groq"],
     "livre": ["ollama_livre"],
     "openrouter": ["openrouter"],
     "nvidia": ["nvidia"],
-    "default": ["gemini_gemma", "groq", "nvidia", "ollama_local"],
+    "default": ["gemini_gemma", "groq", "nvidia", "ollama_local", "ollama_op3"],
 }
 
 
@@ -49,6 +55,23 @@ async def _ollama_cod(prompt: str) -> str:
 
 async def _ollama_livre(prompt: str) -> str:
     return await _via_gate(prompt, "ted-livre-local-dolphinphi", TED_GATE_KEY_LIVRE)
+
+
+async def _ollama_op3(prompt: str) -> str:
+    if not OP3_OLLAMA_URL:
+        raise RuntimeError("OP3_OLLAMA_URL não configurada (VM ainda não criada/integrada — ver GCP-VM-SETUP.md)")
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        resp = await client.post(
+            f"{OP3_OLLAMA_URL}/api/chat",
+            json={
+                "model": OP3_OLLAMA_MODEL,
+                "messages": [{"role": "user", "content": prompt}],
+                "stream": False,
+            },
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        return data["message"]["content"]
 
 
 async def _via_gate(prompt: str, modelo: str, chave: str) -> str:
@@ -154,6 +177,7 @@ PROVEDORES = {
     "ollama_escrita": _ollama_escrita,
     "ollama_cod": _ollama_cod,
     "ollama_livre": _ollama_livre,
+    "ollama_op3": _ollama_op3,
     "groq": _groq,
     "gemini_gemma": _gemini_gemma,
     "nvidia": _nvidia,

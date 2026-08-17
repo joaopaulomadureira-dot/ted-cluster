@@ -21,6 +21,15 @@ ping -c 1 -W 2 100.112.109.38 > /dev/null 2>&1 && echo "✅ ONLINE" || echo "❌
 echo -n "OP2 (100.122.103.89): "
 ping -c 1 -W 2 100.122.103.89 > /dev/null 2>&1 && echo "✅ ONLINE" || echo "❌ OFFLINE"
 
+# OP3 (Google Cloud VM) — opcional, só testa se TED_OP3_IP estiver definido.
+# Preencher em hardware/op3-gcp.md e exportar TED_OP3_IP=100.x.x.x depois que a VM entrar na tailnet.
+if [ -n "$TED_OP3_IP" ]; then
+  echo -n "OP3 ($TED_OP3_IP): "
+  ping -c 1 -W 2 "$TED_OP3_IP" > /dev/null 2>&1 && echo "✅ ONLINE" || echo "❌ OFFLINE"
+else
+  echo "OP3: ⏳ não configurado (export TED_OP3_IP=... após criar a VM — ver GCP-VM-SETUP.md)"
+fi
+
 echo ""
 echo "📊 Status local Tailscale:"
 

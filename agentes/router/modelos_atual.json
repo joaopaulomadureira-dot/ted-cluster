@@ -1,0 +1,13 @@
+{
+  "_comentario": "Lista de modelos ativos por provedor gratuito. Editado automaticamente 1x/semana pelo atualizador_modelos.py (domingo 06:00). Editar na mao so em emergencia -- rodar o atualizador manual antes de mexer aqui.",
+  "groq_model": "openai/gpt-oss-120b",
+  "gemini_model": "gemma-4-31b-it",
+  "nvidia_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+  "openrouter_modelos": [
+    "z-ai/glm-5.2:free",
+    "cohere/north-mini-code:free",
+    "minimax/minimax-m3:free"
+  ],
+  "ultima_atualizacao": "2026-09-03",
+  "ultimo_resultado": "nenhuma mudanca necessaria esta semana"
+}

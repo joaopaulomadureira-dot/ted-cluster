@@ -18,8 +18,8 @@ ping -c 1 -W 2 100.98.186.17 > /dev/null 2>&1 && echo "✅ ONLINE" || echo "❌ 
 echo -n "OP1 (100.112.109.38): "
 ping -c 1 -W 2 100.112.109.38 > /dev/null 2>&1 && echo "✅ ONLINE" || echo "❌ OFFLINE"
 
-echo -n "OP2 (100.122.103.89): "
-ping -c 1 -W 2 100.122.103.89 > /dev/null 2>&1 && echo "✅ ONLINE" || echo "❌ OFFLINE"
+echo -n "OP2 (100.93.114.31): "
+ping -c 1 -W 2 100.93.114.31 > /dev/null 2>&1 && echo "✅ ONLINE" || echo "❌ OFFLINE"
 
 echo ""
 echo "📊 Status local Tailscale:"
